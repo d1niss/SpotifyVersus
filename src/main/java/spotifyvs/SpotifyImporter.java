@@ -8,6 +8,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
+import java.util.List;
 
 public class SpotifyImporter {
 
@@ -23,6 +24,13 @@ public class SpotifyImporter {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+
+        SongRep repo = new SongRep();
+        List<Song> mySongs = repo.getRandomSongs(4);
+
+        for (Song s : mySongs) {
+        System.out.println("Fetched: " + s);
         }
     }
 
