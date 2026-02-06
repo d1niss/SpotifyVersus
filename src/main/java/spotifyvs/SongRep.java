@@ -12,6 +12,22 @@ public class SongRep {
 
     private static final String JDBC_URL = "jdbc:sqlite:spotify_tracks.db";
 
+    public int getSongCount() {
+        String sql = "SELECT COUNT(*) AS count FROM tracks";
+        try (Connection conn = DriverManager.getConnection(JDBC_URL);
+             PreparedStatement pstmt = conn.prepareStatement(sql);
+             ResultSet rs = pstmt.executeQuery()) {
+
+            if (rs.next()) {
+                return rs.getInt(1);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error counting songs: " + e.getMessage());
+        }
+        return 0;
+    }
+
+
     /**
      * Connects to the database and fetches 'count' number of random songs.
      */
