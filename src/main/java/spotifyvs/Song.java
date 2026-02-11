@@ -6,8 +6,7 @@ public class Song {
     private String artistNames;
     private String albumName;
     private boolean isBye = false; // flag to indicate if this is a "bye" song (used for odd number of songs in a round)
-    // You can add more fields (like popularity or danceability) if you want to use them later
-
+   
     public Song(String trackUri, String trackName, String artistNames, String albumName) {
         this.trackUri = trackUri;
         this.trackName = trackName;
