@@ -13,7 +13,7 @@ import java.util.List;
 public class SpotifyImporter {
 
     public static void main(String[] args) {
-        String csvFile = "songs.csv"; // Make sure this file is in your project root
+        String csvFile = "songs.csv"; // Make sure this file is in the project root
         String jdbcUrl = "jdbc:sqlite:spotify_tracks.db"; // This will create the DB file
 
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
@@ -86,10 +86,7 @@ public class SpotifyImporter {
 
             int count = 0;
             for (CSVRecord record : records) {
-                // Mapping columns by name (safe even if CSV column order changes)
-                // We handle potential empty numbers by parsing carefully if needed, 
-                // but assuming your data is clean based on the sample:
-                
+
                 pstmt.setString(1, record.get("Track URI"));
                 pstmt.setString(2, record.get("Track Name"));
                 pstmt.setString(3, record.get("Album Name"));
@@ -109,8 +106,6 @@ public class SpotifyImporter {
                 pstmt.setInt(17, Integer.parseInt(record.get("Mode")));
                 pstmt.setDouble(18, Double.parseDouble(record.get("Speechiness")));
                 pstmt.setDouble(19, Double.parseDouble(record.get("Acousticness")));
-                
-                // Instrumentalness can sometimes be int or float in CSV, Double covers both
                 pstmt.setDouble(20, Double.parseDouble(record.get("Instrumentalness")));
                 pstmt.setDouble(21, Double.parseDouble(record.get("Liveness")));
                 pstmt.setDouble(22, Double.parseDouble(record.get("Valence")));
