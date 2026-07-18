@@ -9,14 +9,15 @@ import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.image.Image;
+import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
 
-
 public class App extends Application {
 
-   private List<Song> currentRound;
+    private List<Song> currentRound;
     private List<Song> nextRoundWinners;
     private int currentIndex;
     private int roundNumber;
@@ -28,16 +29,25 @@ public class App extends Application {
     private Button btnPlayB;
     private VBox layoutPrincipal;
 
+    // NEW VISUAL FIELDS
+    private SpotifyService spotifyService;
+    private ImageView imgViewA;
+    private ImageView imgViewB;
+
     @Override
     public void start(Stage primaryStage) {
         primaryStage.setTitle("SpotifyVersus - Torneio com Player");
+
+        // Initialize and authenticate Spotify connectivity asynchronously behind the scenes
+        this.spotifyService = new SpotifyService();
+        this.spotifyService.authenticate();
 
         SongRep repo = new SongRep();
 
         if (repo.getSongCount() == 0) {
             SpotifyImporter.importarAutomatico();
         }
-        
+
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
@@ -63,6 +73,17 @@ public class App extends Application {
 
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+
+        // Initialize Image Views for Album Covers
+        imgViewA = new ImageView();
+        imgViewA.setFitWidth(200);
+        imgViewA.setFitHeight(200);
+        imgViewA.setPreserveRatio(true);
+
+        imgViewB = new ImageView();
+        imgViewB.setFitWidth(200);
+        imgViewB.setFitHeight(200);
+        imgViewB.setPreserveRatio(true);
 
         btnMusicaA = new Button();
         btnMusicaB = new Button();
@@ -99,10 +120,11 @@ public class App extends Application {
         btnMusicaA.setOnAction(e -> votar(1)); 
         btnMusicaB.setOnAction(e -> votar(2)); 
 
-        VBox containerA = new VBox(12, btnMusicaA, btnPlayA);
+        // Added the image views right above the song selection buttons
+        VBox containerA = new VBox(15, imgViewA, btnMusicaA, btnPlayA);
         containerA.setAlignment(Pos.CENTER);
 
-        VBox containerB = new VBox(12, btnMusicaB, btnPlayB);
+        VBox containerB = new VBox(15, imgViewB, btnMusicaB, btnPlayB);
         containerB.setAlignment(Pos.CENTER);
 
         HBox layoutBotoes = new HBox(40, containerA, containerB);
@@ -114,7 +136,8 @@ public class App extends Application {
 
         avancarConfronto();
 
-        Scene cena = new Scene(layoutPrincipal, 720, 420);
+        // Increased window height slightly (from 420 to 600) to naturally accommodate the new album art frames
+        Scene cena = new Scene(layoutPrincipal, 720, 600);
         primaryStage.setScene(cena);
         primaryStage.show();
     }
@@ -152,6 +175,22 @@ public class App extends Application {
         btnMusicaA.setText(s1.getTrackName() + "\n👤 " + s1.getArtistNames());
         btnMusicaB.setText(s2.getTrackName() + "\n👤 " + s2.getArtistNames());
 
+        // DYNAMIC ARTWORK LOADER
+        String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
+        if (artUrlA != null) {
+            // The true flag parameters tell JavaFX to download the image smoothly on a background worker thread
+            imgViewA.setImage(new Image(artUrlA, true));
+        } else {
+            imgViewA.setImage(null);
+        }
+
+        String artUrlB = spotifyService.getAlbumArtUrl(s2.getTrackUri());
+        if (artUrlB != null) {
+            imgViewB.setImage(new Image(artUrlB, true));
+        } else {
+            imgViewB.setImage(null);
+        }
+
         btnPlayA.setOnAction(e -> abrirNoSpotify(s1.getTrackUri()));
         btnPlayB.setOnAction(e -> abrirNoSpotify(s2.getTrackUri()));
     }
@@ -166,26 +205,19 @@ public class App extends Application {
         avancarConfronto(); 
     }
 
-    /**
-     * Transforma o URI interno do Spotify num link funcional e abre-o no sistema.
-     */
     private void abrirNoSpotify(String trackUri) {
-       if (trackUri == null || trackUri.isEmpty()) return;
+        if (trackUri == null || trackUri.isEmpty()) return;
 
-    try {
-        // Envia o URI original (ex: spotify:track:4PTG3Z6eh...) diretamente para o Sistema Operativo.
-        // Se a app do Spotify estiver instalada, o Windows/Mac vai abrir a app automaticamente.
-        getHostServices().showDocument(trackUri);
-    } catch (Exception e) {
-        System.out.println("App do Spotify não encontrada. A abrir no browser como alternativa...");
-        
-        // PLANO B: Se o sistema falhar ao abrir a app, converte para link web e abre no browser
-        if (trackUri.startsWith("spotify:track:")) {
-            String trackId = trackUri.substring("spotify:track:".length());
-            String urlWeb = "https://open.spotify.com/track/" + trackId;
-            getHostServices().showDocument(urlWeb);
+        try {
+            getHostServices().showDocument(trackUri);
+        } catch (Exception e) {
+            System.out.println("App do Spotify não encontrada. A abrir no browser como alternativa...");
+            if (trackUri.startsWith("spotify:track:")) {
+                String trackId = trackUri.substring("spotify:track:".length());
+                String urlWeb = "https://open.spotify.com/track/" + trackId;
+                getHostServices().showDocument(urlWeb);
+            }
         }
-    }
     }
 
     private void mostrarVencedorFinal(Song vencedor) {
@@ -195,13 +227,22 @@ public class App extends Application {
         Label lblVencedor = new Label(vencedor.getTrackName().toUpperCase() + "\nby " + vencedor.getArtistNames());
         lblVencedor.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
 
-        // Botão bónus para ouvir a música campeã no final
+        // Display winning track artwork at the final screen
+        ImageView imgVencedor = new ImageView();
+        imgVencedor.setFitWidth(250);
+        imgVencedor.setFitHeight(250);
+        imgVencedor.setPreserveRatio(true);
+        String finalArt = spotifyService.getAlbumArtUrl(vencedor.getTrackUri());
+        if (finalArt != null) {
+            imgVencedor.setImage(new Image(finalArt, true));
+        }
+
         Button btnPlayVencedor = new Button("▶ Ouvir Música Campeã");
         btnPlayVencedor.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnPlayVencedor.setOnAction(e -> abrirNoSpotify(vencedor.getTrackUri()));
 
         layoutPrincipal.getChildren().clear();
-        layoutPrincipal.getChildren().addAll(lblStatus, lblVencedor, btnPlayVencedor);
+        layoutPrincipal.getChildren().addAll(lblStatus, imgVencedor, lblVencedor, btnPlayVencedor);
     }
 
     private void mostrarJanelaErro(Stage stage, String mensagem) {
@@ -216,47 +257,5 @@ public class App extends Application {
 
     public static void main(String[] args) {
         launch(args);
-    
     }
 }
-
-/*
-import java.util.Collections;
-import java.util.List;
- 
-public class App {
-    public static void main(String[] args) {
-        System.out.println("Welcome to spotify versus!");
-
-        SongRep repo = new SongRep();
-
-        int realSongCount = repo.getSongCount();
-        if (realSongCount < 2) {
-            System.out.println("Not enough songs in the database to start a game. Please import more songs.");
-            return;
-        }
-
-        int highestOneBit= Integer.highestOneBit(realSongCount);
-        int bracketSize = (realSongCount == highestOneBit) ? realSongCount : highestOneBit << 1;
-
-        System.out.println("Found " + realSongCount + " songs in the database.");
-        System.out.println("Starting a game with " + bracketSize + " songs (including " + (bracketSize - realSongCount) + " byes).");
-
-        List<Song> competitors = repo.getRandomSongs(realSongCount);
-
-        while(competitors.size() < bracketSize) {
-            competitors.add(Song.createBye());
-        }
-
-        Collections.shuffle(competitors);
-
-        TournamentManager tournament = new TournamentManager();
-        Song winner = tournament.startTournament(competitors);
-        System.out.println("\n******************************************");
-        System.out.println("THE WINNER IS: " + winner.getTrackName().toUpperCase());
-        System.out.println("Artist: " + winner.getArtistNames());
-        System.out.println("******************************************");
-    
-    }
-}
-*/
