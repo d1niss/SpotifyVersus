@@ -12,25 +12,30 @@ import java.util.List;
 
 public class SpotifyImporter {
 
-    public static void main(String[] args) {
-        String csvFile = "songs.csv"; // Make sure this file is in the project root
-        String jdbcUrl = "jdbc:sqlite:spotify_tracks.db"; // This will create the DB file
+public static void importarAutomatico() {
+        String csvFile = "songs.csv"; 
+        String jdbcUrl = "jdbc:sqlite:spotify_tracks.db";
 
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
             if (conn != null) {
-                System.out.println("Connected to database.");
+                System.out.println("Base de dados detetada vazia. A iniciar importação automática do CSV...");
                 createTable(conn);
                 importCsv(conn, csvFile);
             }
         } catch (Exception e) {
+            System.err.println("Erro na importação automática: " + e.getMessage());
             e.printStackTrace();
         }
+    }
+
+    public static void main(String[] args) {
+        importarAutomatico();
 
         SongRep repo = new SongRep();
         List<Song> mySongs = repo.getRandomSongs(4);
 
         for (Song s : mySongs) {
-        System.out.println("Fetched: " + s);
+            System.out.println("Fetched: " + s);
         }
     }
 
