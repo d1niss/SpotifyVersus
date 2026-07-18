@@ -33,6 +33,11 @@ public class App extends Application {
         primaryStage.setTitle("SpotifyVersus - Torneio com Player");
 
         SongRep repo = new SongRep();
+
+        if (repo.getSongCount() == 0) {
+            SpotifyImporter.importarAutomatico();
+        }
+        
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
