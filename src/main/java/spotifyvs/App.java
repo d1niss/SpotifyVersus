@@ -42,12 +42,10 @@ public class App extends Application {
         this.spotifyService = new SpotifyService();
         this.spotifyService.authenticate();
 
+        // Always import the current CSV file right away on startup
+        SpotifyImporter.autoImport();
+
         SongRep repo = new SongRep();
-
-        if (repo.getSongCount() == 0) {
-            SpotifyImporter.importarAutomatico();
-        }
-
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
