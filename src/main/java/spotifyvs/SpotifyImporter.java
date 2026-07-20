@@ -12,24 +12,30 @@ import java.util.List;
 
 public class SpotifyImporter {
 
-public static void importarAutomatico() {
+public static void autoImport() {
         String csvFile = "songs.csv"; 
         String jdbcUrl = "jdbc:sqlite:spotify_tracks.db";
 
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
             if (conn != null) {
-                System.out.println("Empty database, now creating table and importing data from CSV...");
+                // --- ADDED THIS LINE TO CLEAR OLD TRACKS ---
+                try (Statement clearStmt = conn.createStatement()) {
+                    clearStmt.execute("DROP TABLE IF EXISTS tracks;");
+                    System.out.println("Deleted existing 'tracks' table.");
+                }
+
+                System.out.println("Iniciating automatic import from CSV to SQLite database...");
                 createTable(conn);
                 importCsv(conn, csvFile);
             }
         } catch (Exception e) {
-            System.err.println("Error during automatic import: " + e.getMessage());
+            System.err.println("Error in automatic import: " + e.getMessage());
             e.printStackTrace();
         }
     }
 
     public static void main(String[] args) {
-        importarAutomatico();
+        autoImport();
 
         SongRep repo = new SongRep();
         List<Song> mySongs = repo.getRandomSongs(4);
