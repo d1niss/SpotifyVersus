@@ -23,11 +23,11 @@ public class App extends Application {
     private int roundNumber;
 
     private Label lblStatus;
-    private Button btnMusicaA;
-    private Button btnMusicaB;
+    private Button btnMusicA;
+    private Button btnMusicB;
     private Button btnPlayA;
     private Button btnPlayB;
-    private VBox layoutPrincipal;
+    private VBox mainLayout;
 
     // NEW VISUAL FIELDS
     private SpotifyService spotifyService;
@@ -36,7 +36,7 @@ public class App extends Application {
 
     @Override
     public void start(Stage primaryStage) {
-        primaryStage.setTitle("SpotifyVersus - Torneio com Player");
+        primaryStage.setTitle("SpotifyVersus");
 
         // Initialize and authenticate Spotify connectivity asynchronously behind the scenes
         this.spotifyService = new SpotifyService();
@@ -51,7 +51,7 @@ public class App extends Application {
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
-            mostrarJanelaErro(primaryStage, "Não existem músicas suficientes na base de dados para começar.");
+            showErrorMessage(primaryStage, "Not enough songs in the database to start a tournament. Please import more songs.");
             return;
         }
 
@@ -85,10 +85,10 @@ public class App extends Application {
         imgViewB.setFitHeight(200);
         imgViewB.setPreserveRatio(true);
 
-        btnMusicaA = new Button();
-        btnMusicaB = new Button();
+        btnMusicA = new Button();
+        btnMusicB = new Button();
 
-        String estiloBotaoVoto = "-fx-background-color: #1DB954; " + 
+        String voteButtonStyle = "-fx-background-color: #1DB954; " + 
                                  "-fx-text-fill: white; " +
                                  "-fx-font-size: 14px; " +
                                  "-fx-font-weight: bold; " +
@@ -99,13 +99,13 @@ public class App extends Application {
                                  "-fx-min-width: 280px; " +
                                  "-fx-text-alignment: center;";
         
-        btnMusicaA.setStyle(estiloBotaoVoto);
-        btnMusicaB.setStyle(estiloBotaoVoto);
+        btnMusicA.setStyle(voteButtonStyle);
+        btnMusicB.setStyle(voteButtonStyle);
 
-        btnPlayA = new Button("▶ Ouvir no Spotify");
-        btnPlayB = new Button("▶ Ouvir no Spotify");
+        btnPlayA = new Button("▶ Open in Spotify");
+        btnPlayB = new Button("▶ Open in Spotify");
 
-        String estiloBotaoPlay = "-fx-background-color: #282828; " +
+        String playButtonStyle = "-fx-background-color: #282828; " +
                                  "-fx-text-fill: #B3B3B3; " + 
                                  "-fx-font-size: 12px; " +
                                  "-fx-font-weight: bold; " +
@@ -114,35 +114,35 @@ public class App extends Application {
                                  "-fx-cursor: hand; " +
                                  "-fx-min-width: 160px;";
 
-        btnPlayA.setStyle(estiloBotaoPlay);
-        btnPlayB.setStyle(estiloBotaoPlay);
+        btnPlayA.setStyle(playButtonStyle);
+        btnPlayB.setStyle(playButtonStyle);
 
-        btnMusicaA.setOnAction(e -> votar(1)); 
-        btnMusicaB.setOnAction(e -> votar(2)); 
+        btnMusicA.setOnAction(e -> vote(1)); 
+        btnMusicB.setOnAction(e -> vote(2)); 
 
         // Added the image views right above the song selection buttons
-        VBox containerA = new VBox(15, imgViewA, btnMusicaA, btnPlayA);
+        VBox containerA = new VBox(15, imgViewA, btnMusicA, btnPlayA);
         containerA.setAlignment(Pos.CENTER);
 
-        VBox containerB = new VBox(15, imgViewB, btnMusicaB, btnPlayB);
+        VBox containerB = new VBox(15, imgViewB, btnMusicB, btnPlayB);
         containerB.setAlignment(Pos.CENTER);
 
-        HBox layoutBotoes = new HBox(40, containerA, containerB);
-        layoutBotoes.setAlignment(Pos.CENTER);
+        HBox layoutBtn = new HBox(40, containerA, containerB);
+        layoutBtn.setAlignment(Pos.CENTER);
 
-        layoutPrincipal = new VBox(30, lblStatus, layoutBotoes);
-        layoutPrincipal.setAlignment(Pos.CENTER);
-        layoutPrincipal.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
+        mainLayout = new VBox(30, lblStatus, layoutBtn);
+        mainLayout.setAlignment(Pos.CENTER);
+        mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
-        avancarConfronto();
+        advanceConfront();
 
         // Increased window height slightly (from 420 to 600) to naturally accommodate the new album art frames
-        Scene cena = new Scene(layoutPrincipal, 720, 600);
-        primaryStage.setScene(cena);
+        Scene sceneOn = new Scene(mainLayout, 720, 600);
+        primaryStage.setScene(sceneOn);
         primaryStage.show();
     }
 
-    private void avancarConfronto() {
+    private void advanceConfront() {
         if (currentIndex >= currentRound.size()) {
             currentRound = nextRoundWinners;
             nextRoundWinners = new ArrayList<>();
@@ -151,7 +151,7 @@ public class App extends Application {
         }
 
         if (currentRound.size() == 1) {
-            mostrarVencedorFinal(currentRound.get(0));
+            showFinalWinner(currentRound.get(0));
             return;
         }
 
@@ -161,19 +161,19 @@ public class App extends Application {
         if (s1.isBye()) {
             nextRoundWinners.add(s2);
             currentIndex += 2;
-            avancarConfronto(); 
+            advanceConfront(); 
             return;
         }
         if (s2.isBye()) {
             nextRoundWinners.add(s1);
             currentIndex += 2;
-            avancarConfronto(); 
+            advanceConfront(); 
             return;
         }
 
-        lblStatus.setText("--- RONDA " + roundNumber + " (" + currentRound.size() + " músicas restantes) ---");
-        btnMusicaA.setText(s1.getTrackName() + "\n👤 " + s1.getArtistNames());
-        btnMusicaB.setText(s2.getTrackName() + "\n👤 " + s2.getArtistNames());
+        lblStatus.setText("--- ROUND " + roundNumber + " (" + currentRound.size() + " songs remaining) ---");
+        btnMusicA.setText(s1.getTrackName() + "\n👤 " + s1.getArtistNames());
+        btnMusicB.setText(s2.getTrackName() + "\n👤 " + s2.getArtistNames());
 
         // DYNAMIC ARTWORK LOADER
         String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
@@ -191,27 +191,27 @@ public class App extends Application {
             imgViewB.setImage(null);
         }
 
-        btnPlayA.setOnAction(e -> abrirNoSpotify(s1.getTrackUri()));
-        btnPlayB.setOnAction(e -> abrirNoSpotify(s2.getTrackUri()));
+        btnPlayA.setOnAction(e -> openInSpotify(s1.getTrackUri()));
+        btnPlayB.setOnAction(e -> openInSpotify(s2.getTrackUri()));
     }
 
-    private void votar(int escolha) {
-        if (escolha == 1) {
+    private void vote(int choice) {
+        if (choice == 1) {
             nextRoundWinners.add(currentRound.get(currentIndex));
         } else {
             nextRoundWinners.add(currentRound.get(currentIndex + 1));
         }
         currentIndex += 2;
-        avancarConfronto(); 
+        advanceConfront(); 
     }
 
-    private void abrirNoSpotify(String trackUri) {
+    private void openInSpotify(String trackUri) {
         if (trackUri == null || trackUri.isEmpty()) return;
 
         try {
             getHostServices().showDocument(trackUri);
         } catch (Exception e) {
-            System.out.println("App do Spotify não encontrada. A abrir no browser como alternativa...");
+            System.out.println("App not found, opening in browser instead.");
             if (trackUri.startsWith("spotify:track:")) {
                 String trackId = trackUri.substring("spotify:track:".length());
                 String urlWeb = "https://open.spotify.com/track/" + trackId;
@@ -220,33 +220,33 @@ public class App extends Application {
         }
     }
 
-    private void mostrarVencedorFinal(Song vencedor) {
-        lblStatus.setText("🏆 O TORNEIO TERMINOU! A VENCEDORA É: 🏆");
+    private void showFinalWinner(Song winner) {
+        lblStatus.setText("🏆 AND THE WINNER IS: 🏆");
         lblStatus.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFD700; -fx-font-weight: bold;"); 
 
-        Label lblVencedor = new Label(vencedor.getTrackName().toUpperCase() + "\nby " + vencedor.getArtistNames());
-        lblVencedor.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
+        Label lblWinner = new Label(winner.getTrackName().toUpperCase() + "\nby " + winner.getArtistNames());
+        lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
 
         // Display winning track artwork at the final screen
-        ImageView imgVencedor = new ImageView();
-        imgVencedor.setFitWidth(250);
-        imgVencedor.setFitHeight(250);
-        imgVencedor.setPreserveRatio(true);
-        String finalArt = spotifyService.getAlbumArtUrl(vencedor.getTrackUri());
+        ImageView imgWinner = new ImageView();
+        imgWinner.setFitWidth(250);
+        imgWinner.setFitHeight(250);
+        imgWinner.setPreserveRatio(true);
+        String finalArt = spotifyService.getAlbumArtUrl(winner.getTrackUri());
         if (finalArt != null) {
-            imgVencedor.setImage(new Image(finalArt, true));
+            imgWinner.setImage(new Image(finalArt, true));
         }
 
-        Button btnPlayVencedor = new Button("▶ Ouvir Música Campeã");
-        btnPlayVencedor.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
-        btnPlayVencedor.setOnAction(e -> abrirNoSpotify(vencedor.getTrackUri()));
+        Button btnPlayWinner = new Button("▶ Open Last Winner in Spotify");
+        btnPlayWinner.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnPlayWinner.setOnAction(e -> openInSpotify(winner.getTrackUri()));
 
-        layoutPrincipal.getChildren().clear();
-        layoutPrincipal.getChildren().addAll(lblStatus, imgVencedor, lblVencedor, btnPlayVencedor);
+        mainLayout.getChildren().clear();
+        mainLayout.getChildren().addAll(lblStatus, imgWinner, lblWinner, btnPlayWinner);
     }
 
-    private void mostrarJanelaErro(Stage stage, String mensagem) {
-        Label lblErro = new Label(mensagem);
+    private void showErrorMessage(Stage stage, String message) {
+        Label lblErro = new Label(message);
         lblErro.setStyle("-fx-text-fill: #FF5555; -fx-font-size: 16px; -fx-font-weight: bold;");
         VBox layout = new VBox(lblErro);
         layout.setAlignment(Pos.CENTER);

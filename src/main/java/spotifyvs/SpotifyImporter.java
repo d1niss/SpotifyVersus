@@ -18,12 +18,12 @@ public static void importarAutomatico() {
 
         try (Connection conn = DriverManager.getConnection(jdbcUrl)) {
             if (conn != null) {
-                System.out.println("Base de dados detetada vazia. A iniciar importação automática do CSV...");
+                System.out.println("Empty database, now creating table and importing data from CSV...");
                 createTable(conn);
                 importCsv(conn, csvFile);
             }
         } catch (Exception e) {
-            System.err.println("Erro na importação automática: " + e.getMessage());
+            System.err.println("Error during automatic import: " + e.getMessage());
             e.printStackTrace();
         }
     }
