@@ -2,13 +2,32 @@ package spotifyvs;
 
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVRecord;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+
 import java.io.FileReader;
 import java.io.Reader;
+import java.net.URI;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.Statement;
 import java.util.List;
+import se.michaelthelin.spotify.SpotifyApi;
+import se.michaelthelin.spotify.model_objects.specification.Paging;
+import se.michaelthelin.spotify.model_objects.specification.PlaylistTrack;
+import se.michaelthelin.spotify.model_objects.specification.Track;
+
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
+import java.net.URI;
+import java.net.http.HttpClient;
+import java.net.http.HttpRequest;
+import java.net.http.HttpResponse;
 
 public class SpotifyImporter {
 
@@ -131,4 +150,125 @@ public static void autoImport() {
             System.out.println("Successfully imported " + count + " tracks!");
         }
     }
+
+    public static boolean importPlaylistFromSpotify(String playlistId, SpotifyApi spotifyApi) {
+    String jdbcUrl = "jdbc:sqlite:spotify_tracks.db";
+
+    try {
+        String accessToken = spotifyApi.getAccessToken();
+        if (accessToken == null || accessToken.isEmpty()) {
+            System.err.println("[DEBUG] No valid access token found.");
+            return false;
+        }
+
+        try (Connection conn = DriverManager.getConnection(jdbcUrl);
+             Statement clearStmt = conn.createStatement()) {
+            clearStmt.execute("DROP TABLE IF EXISTS tracks;");
+            System.out.println("Cleared database cache for live playlist download.");
+            createTable(conn);
+        }
+
+        HttpClient client = HttpClient.newHttpClient();
+        HttpRequest request = HttpRequest.newBuilder()
+                .uri(URI.create("https://api.spotify.com/v1/playlists/" + playlistId + "/items?limit=50"))
+                .header("Authorization", "Bearer " + accessToken)
+                .GET()
+                .build();
+
+        HttpResponse<String> response = client.send(request, HttpResponse.BodyHandlers.ofString());
+
+        if (response.statusCode() != 200) {
+            System.err.println("[DEBUG] Failed to fetch tracks. HTTP Status Code: " + response.statusCode());
+            System.err.println("[DEBUG] Response body: " + response.body());
+            return false;
+        }
+
+        JsonObject jsonObject = JsonParser.parseString(response.body()).getAsJsonObject();
+        JsonArray items = jsonObject.getAsJsonArray("items");
+
+        // LOG DE DIAGNÓSTICO 1: Verificar o tamanho do array retornado
+        if (items == null) {
+            System.out.println("[DEBUG] The 'items' array is completely NULL.");
+            return false;
+        }
+        System.out.println("[DEBUG] Total items received in JSON array: " + items.size());
+
+        if (items.size() == 0) {
+            System.out.println("[DEBUG] The playlist payload returned 0 items. Is the playlist empty?");
+            return false;
+        }
+
+        // LOG DE DIAGNÓSTICO 2: Imprimir a estrutura do primeiro item para inspecionar os campos
+        System.out.println("[DEBUG] Structure of the first item: " + items.get(0).toString());
+
+        String insertSql = "INSERT OR IGNORE INTO tracks (track_uri, track_name, album_name, artist_names) VALUES (?,?,?,?)";
+        
+        try (Connection conn = DriverManager.getConnection(jdbcUrl);
+             PreparedStatement pstmt = conn.prepareStatement(insertSql)) {
+            
+            int count = 0;
+            for (JsonElement itemElement : items) {
+                JsonObject itemObj = itemElement.getAsJsonObject();
+    
+                
+                if (!itemObj.has("item") || itemObj.get("item").isJsonNull()) {
+                    continue;
+                }
+    
+                JsonObject trackObj = itemObj.getAsJsonObject("item");
+    
+                String trackUri = trackObj.has("uri") ? trackObj.get("uri").getAsString() : null;
+                String trackName = trackObj.has("name") ? trackObj.get("name").getAsString() : "Unknown Track";
+    
+                String albumName = "Unknown Album";
+                if (trackObj.has("album") && !trackObj.get("album").isJsonNull()) {
+                    JsonObject albumObj = trackObj.getAsJsonObject("album");
+                    if (albumObj.has("name")) {
+                        albumName = albumObj.get("name").getAsString();
+                    }
+                }
+
+                StringBuilder artistBuilder = new StringBuilder();
+                if (trackObj.has("artists") && !trackObj.get("artists").isJsonNull()) {
+                    JsonArray artistsArray = trackObj.getAsJsonArray("artists");
+                    for (int i = 0; i < artistsArray.size(); i++) {
+                        JsonObject artistObj = artistsArray.get(i).getAsJsonObject();
+                        if (artistObj.has("name")) {
+                            artistBuilder.append(artistObj.get("name").getAsString());
+                if (i < artistsArray.size() - 1) {
+                    artistBuilder.append(", ");
+                }
+            }
+        }
+    }
+
+    if (trackUri != null) {
+        pstmt.setString(1, trackUri);
+        pstmt.setString(2, trackName);
+        pstmt.setString(3, albumName);
+        pstmt.setString(4, artistBuilder.toString());
+        pstmt.addBatch();
+        count++;
+    }
+}
+            
+            pstmt.executeBatch();
+            System.out.println("Successfully imported " + count + " tracks live from Spotify API using direct HTTP /items endpoint!");
+            
+            // Se mesmo com itens no array rodando o laço ele continuar zerado, printe a resposta bruta
+            if (count == 0) {
+                System.out.println("[DEBUG] Loop finished with 0 matches. Raw response body: " + response.body());
+            }
+            
+            return count > 0; // Só avança se realmente salvou alguma música no banco
+        }
+
+    } catch (Exception e) {
+        System.err.println("Failed to fetch live playlist tracks: " + e.getMessage());
+        e.printStackTrace();
+    }
+    return false;
+}
+
+    
 }

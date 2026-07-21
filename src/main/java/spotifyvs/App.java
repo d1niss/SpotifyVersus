@@ -5,15 +5,20 @@ import java.util.Collections;
 import java.util.List;
 
 import javafx.application.Application;
+import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
+import javafx.scene.control.ListCell;
+import javafx.scene.control.ListView;
+import javafx.scene.control.ProgressIndicator;
 import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
 import javafx.stage.Stage;
+import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
 
 public class App extends Application {
 
@@ -29,7 +34,6 @@ public class App extends Application {
     private Button btnPlayB;
     private VBox mainLayout;
 
-    // NEW VISUAL FIELDS
     private SpotifyService spotifyService;
     private ImageView imgViewA;
     private ImageView imgViewB;
@@ -38,18 +42,105 @@ public class App extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("SpotifyVersus");
 
-        // Initialize and authenticate Spotify connectivity asynchronously behind the scenes
+        VBox loadingLayout = new VBox(20);
+        loadingLayout.setAlignment(Pos.CENTER);
+        loadingLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;");
+
+        Label lblWaiting = new Label("Waiting for Spotify Authentication...");
+        lblWaiting.setStyle("-fx-font-size: 18px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+
+        ProgressIndicator progressIndicator = new ProgressIndicator();
+        progressIndicator.setStyle("-fx-progress-color: #1DB954;");
+
+        loadingLayout.getChildren().addAll(lblWaiting, progressIndicator);
+        primaryStage.setScene(new Scene(loadingLayout, 720, 600));
+        primaryStage.show();
+
         this.spotifyService = new SpotifyService();
-        this.spotifyService.authenticate();
+        
+        new Thread(() -> {
+            boolean success = this.spotifyService.authenticate();
+            if (success) {
+                List<PlaylistSimplified> playlists = this.spotifyService.getCurrentUsersPlaylists();
+                Platform.runLater(() -> showPlaylistSelectionUI(primaryStage, playlists));
+            } else {
+                Platform.runLater(() -> showErrorMessage(primaryStage, "Authentication failed."));
+            }
+        }).start();
+    }
 
-        // Always import the current CSV file right away on startup
-        SpotifyImporter.autoImport();
+    private void showPlaylistSelectionUI(Stage primaryStage, List<PlaylistSimplified> playlists) {
+        VBox selectionLayout = new VBox(20);
+        selectionLayout.setAlignment(Pos.CENTER);
+        selectionLayout.setStyle("-fx-background-color: #121212; -fx-padding: 30px;");
 
+        Label lblTitle = new Label("Select a Playlist to Start the Versus Bracket:");
+        lblTitle.setStyle("-fx-font-size: 18px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
+
+        ListView<PlaylistSimplified> listView = new ListView<>();
+        listView.setMaxWidth(500);
+        listView.setPrefHeight(350);
+        listView.setStyle("-fx-background-color: #181818; -fx-control-inner-background: #181818;");
+
+        if (playlists != null) {
+            listView.getItems().addAll(playlists);
+        }
+
+        // Cleaned cell factory to show names clearly without inaccurate track totals
+        listView.setCellFactory(param -> new ListCell<PlaylistSimplified>() {
+            @Override
+            protected void updateItem(PlaylistSimplified item, boolean empty) {
+                super.updateItem(item, empty);
+                if (empty || item == null) {
+                    setText(null);
+                    setStyle("-fx-background-color: #181818;");
+                } else {
+                    setText("🎵  " + item.getName());
+                    setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10px;");
+                }
+            }
+        });
+
+        Button btnSelect = new Button("Load Tournament");
+        btnSelect.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnSelect.setDisable(true);
+
+        listView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
+            btnSelect.setDisable(newVal == null);
+        });
+
+        btnSelect.setOnAction(e -> {
+            PlaylistSimplified selectedPlaylist = listView.getSelectionModel().getSelectedItem();
+    if (selectedPlaylist != null) {
+        btnSelect.setDisable(true);
+        lblTitle.setText("Downloading tracks live from Spotify...");
+        
+        new Thread(() -> {
+            boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
+            Platform.runLater(() -> {
+                if (success) {
+                    setupTournamentUI(primaryStage);
+                } else {
+                    lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
+                    btnSelect.setDisable(false);
+                    showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
+                }
+            });
+        }).start();
+    }
+        });
+
+        selectionLayout.getChildren().addAll(lblTitle, listView, btnSelect);
+        primaryStage.setScene(new Scene(selectionLayout, 720, 600));
+    }
+
+    private void setupTournamentUI(Stage primaryStage) {
+        // REMOVED: SpotifyImporter.autoImport() is removed so it doesn't overwrite your selected playlist with the CSV file!
         SongRep repo = new SongRep();
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
-            showErrorMessage(primaryStage, "Not enough songs in the database to start a tournament. Please import more songs.");
+            showErrorMessage(primaryStage, "Selected playlist does not contain enough valid tracks to form a tournament bracket.");
             return;
         }
 
@@ -57,11 +148,9 @@ public class App extends Application {
         int bracketSize = (realSongCount == highestOneBit) ? realSongCount : highestOneBit << 1;
 
         List<Song> competitors = repo.getRandomSongs(realSongCount);
-
         while (competitors.size() < bracketSize) {
             competitors.add(Song.createBye());
         }
-
         Collections.shuffle(competitors);
 
         this.currentRound = competitors;
@@ -72,72 +161,30 @@ public class App extends Application {
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
-        // Initialize Image Views for Album Covers
-        imgViewA = new ImageView();
-        imgViewA.setFitWidth(200);
-        imgViewA.setFitHeight(200);
-        imgViewA.setPreserveRatio(true);
+        imgViewA = new ImageView(); imgViewA.setFitWidth(200); imgViewA.setFitHeight(200); imgViewA.setPreserveRatio(true);
+        imgViewB = new ImageView(); imgViewB.setFitWidth(200); imgViewB.setFitHeight(200); imgViewB.setPreserveRatio(true);
 
-        imgViewB = new ImageView();
-        imgViewB.setFitWidth(200);
-        imgViewB.setFitHeight(200);
-        imgViewB.setPreserveRatio(true);
+        btnMusicA = new Button(); btnMusicB = new Button();
+        String voteButtonStyle = "-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 25px 40px; -fx-background-radius: 15px; -fx-cursor: hand; -fx-min-width: 280px; -fx-text-alignment: center;";
+        btnMusicA.setStyle(voteButtonStyle); btnMusicB.setStyle(voteButtonStyle);
 
-        btnMusicA = new Button();
-        btnMusicB = new Button();
-
-        String voteButtonStyle = "-fx-background-color: #1DB954; " + 
-                                 "-fx-text-fill: white; " +
-                                 "-fx-font-size: 14px; " +
-                                 "-fx-font-weight: bold; " +
-                                 "-fx-padding: 25px 40px; " +
-                                 "-fx-background-radius: 15px; " +
-                                 "-fx-cursor: hand; " +
-                                 "-fx-alignment: center; " +
-                                 "-fx-min-width: 280px; " +
-                                 "-fx-text-alignment: center;";
-        
-        btnMusicA.setStyle(voteButtonStyle);
-        btnMusicB.setStyle(voteButtonStyle);
-
-        btnPlayA = new Button("▶ Open in Spotify");
-        btnPlayB = new Button("▶ Open in Spotify");
-
-        String playButtonStyle = "-fx-background-color: #282828; " +
-                                 "-fx-text-fill: #B3B3B3; " + 
-                                 "-fx-font-size: 12px; " +
-                                 "-fx-font-weight: bold; " +
-                                 "-fx-padding: 8px 20px; " +
-                                 "-fx-background-radius: 20px; " +
-                                 "-fx-cursor: hand; " +
-                                 "-fx-min-width: 160px;";
-
-        btnPlayA.setStyle(playButtonStyle);
-        btnPlayB.setStyle(playButtonStyle);
+        btnPlayA = new Button("▶ Open in Spotify"); btnPlayB = new Button("▶ Open in Spotify");
+        String playButtonStyle = "-fx-background-color: #282828; -fx-text-fill: #B3B3B3; -fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 8px 20px; -fx-background-radius: 20px; -fx-cursor: hand; -fx-min-width: 160px;";
+        btnPlayA.setStyle(playButtonStyle); btnPlayB.setStyle(playButtonStyle);
 
         btnMusicA.setOnAction(e -> vote(1)); 
         btnMusicB.setOnAction(e -> vote(2)); 
 
-        // Added the image views right above the song selection buttons
-        VBox containerA = new VBox(15, imgViewA, btnMusicA, btnPlayA);
-        containerA.setAlignment(Pos.CENTER);
-
-        VBox containerB = new VBox(15, imgViewB, btnMusicB, btnPlayB);
-        containerB.setAlignment(Pos.CENTER);
-
-        HBox layoutBtn = new HBox(40, containerA, containerB);
-        layoutBtn.setAlignment(Pos.CENTER);
+        VBox containerA = new VBox(15, imgViewA, btnMusicA, btnPlayA); containerA.setAlignment(Pos.CENTER);
+        VBox containerB = new VBox(15, imgViewB, btnMusicB, btnPlayB); containerB.setAlignment(Pos.CENTER);
+        HBox layoutBtn = new HBox(40, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
 
         mainLayout = new VBox(30, lblStatus, layoutBtn);
         mainLayout.setAlignment(Pos.CENTER);
         mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
         advanceConfront();
-
-        // Increased window height slightly (from 420 to 600) to naturally accommodate the new album art frames
-        Scene sceneOn = new Scene(mainLayout, 720, 600);
-        primaryStage.setScene(sceneOn);
-        primaryStage.show();
+        primaryStage.setScene(new Scene(mainLayout, 720, 600));
     }
 
     private void advanceConfront() {
@@ -156,64 +203,36 @@ public class App extends Application {
         Song s1 = currentRound.get(currentIndex);
         Song s2 = currentRound.get(currentIndex + 1);
 
-        if (s1.isBye()) {
-            nextRoundWinners.add(s2);
-            currentIndex += 2;
-            advanceConfront(); 
-            return;
-        }
-        if (s2.isBye()) {
-            nextRoundWinners.add(s1);
-            currentIndex += 2;
-            advanceConfront(); 
-            return;
-        }
+        if (s1.isBye()) { nextRoundWinners.add(s2); currentIndex += 2; advanceConfront(); return; }
+        if (s2.isBye()) { nextRoundWinners.add(s1); currentIndex += 2; advanceConfront(); return; }
 
         lblStatus.setText("--- ROUND " + roundNumber + " (" + currentRound.size() + " songs remaining) ---");
-        btnMusicA.setText(s1.getTrackName() + "\n👤 " + s1.getArtistNames());
-        btnMusicB.setText(s2.getTrackName() + "\n👤 " + s2.getArtistNames());
+        btnMusicA.setText(s1.getTrackName() + "\n🎤 " + s1.getArtistNames());
+        btnMusicB.setText(s2.getTrackName() + "\n🎤 " + s2.getArtistNames());
 
-        // DYNAMIC ARTWORK LOADER
         String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
-        if (artUrlA != null) {
-            // The true flag parameters tell JavaFX to download the image smoothly on a background worker thread
-            imgViewA.setImage(new Image(artUrlA, true));
-        } else {
-            imgViewA.setImage(null);
-        }
+        imgViewA.setImage(artUrlA != null ? new Image(artUrlA, true) : null);
 
         String artUrlB = spotifyService.getAlbumArtUrl(s2.getTrackUri());
-        if (artUrlB != null) {
-            imgViewB.setImage(new Image(artUrlB, true));
-        } else {
-            imgViewB.setImage(null);
-        }
+        imgViewB.setImage(artUrlB != null ? new Image(artUrlB, true) : null);
 
         btnPlayA.setOnAction(e -> openInSpotify(s1.getTrackUri()));
         btnPlayB.setOnAction(e -> openInSpotify(s2.getTrackUri()));
     }
 
     private void vote(int choice) {
-        if (choice == 1) {
-            nextRoundWinners.add(currentRound.get(currentIndex));
-        } else {
-            nextRoundWinners.add(currentRound.get(currentIndex + 1));
-        }
+        nextRoundWinners.add(choice == 1 ? currentRound.get(currentIndex) : currentRound.get(currentIndex + 1));
         currentIndex += 2;
         advanceConfront(); 
     }
 
     private void openInSpotify(String trackUri) {
         if (trackUri == null || trackUri.isEmpty()) return;
-
         try {
             getHostServices().showDocument(trackUri);
         } catch (Exception e) {
-            System.out.println("App not found, opening in browser instead.");
             if (trackUri.startsWith("spotify:track:")) {
-                String trackId = trackUri.substring("spotify:track:".length());
-                String urlWeb = "https://open.spotify.com/track/" + trackId;
-                getHostServices().showDocument(urlWeb);
+                getHostServices().showDocument("https://open.spotify.com/track/" + trackUri.substring(14));
             }
         }
     }
@@ -225,15 +244,9 @@ public class App extends Application {
         Label lblWinner = new Label(winner.getTrackName().toUpperCase() + "\nby " + winner.getArtistNames());
         lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
 
-        // Display winning track artwork at the final screen
-        ImageView imgWinner = new ImageView();
-        imgWinner.setFitWidth(250);
-        imgWinner.setFitHeight(250);
-        imgWinner.setPreserveRatio(true);
+        ImageView imgWinner = new ImageView(); imgWinner.setFitWidth(250); imgWinner.setFitHeight(250); imgWinner.setPreserveRatio(true);
         String finalArt = spotifyService.getAlbumArtUrl(winner.getTrackUri());
-        if (finalArt != null) {
-            imgWinner.setImage(new Image(finalArt, true));
-        }
+        if (finalArt != null) imgWinner.setImage(new Image(finalArt, true));
 
         Button btnPlayWinner = new Button("▶ Open Last Winner in Spotify");
         btnPlayWinner.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
@@ -246,14 +259,10 @@ public class App extends Application {
     private void showErrorMessage(Stage stage, String message) {
         Label lblErro = new Label(message);
         lblErro.setStyle("-fx-text-fill: #FF5555; -fx-font-size: 16px; -fx-font-weight: bold;");
-        VBox layout = new VBox(lblErro);
-        layout.setAlignment(Pos.CENTER);
-        layout.setStyle("-fx-background-color: #121212;");
+        VBox layout = new VBox(lblErro); layout.setAlignment(Pos.CENTER); layout.setStyle("-fx-background-color: #121212;");
         stage.setScene(new Scene(layout, 500, 200));
         stage.show();
     }
 
-    public static void main(String[] args) {
-        launch(args);
-    }
+    public static void main(String[] args) { launch(args); }
 }
