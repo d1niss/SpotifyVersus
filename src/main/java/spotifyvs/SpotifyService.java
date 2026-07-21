@@ -9,8 +9,7 @@ import se.michaelthelin.spotify.requests.authorization.authorization_code.Author
 import se.michaelthelin.spotify.requests.authorization.authorization_code.AuthorizationCodeUriRequest;
 import se.michaelthelin.spotify.model_objects.specification.Paging;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
-import java.util.Arrays;
-import java.util.List;
+import se.michaelthelin.spotify.model_objects.specification.User;
 
 import java.awt.Desktop;
 import java.io.FileInputStream;
@@ -18,6 +17,9 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Properties;
 import java.util.UUID;
 import java.util.concurrent.CountDownLatch;
@@ -27,11 +29,11 @@ public class SpotifyService {
     private SpotifyApi spotifyApi;
     private boolean isAuthenticated = false;
     private static final int PORT = 8080;
-    // Uses the loopback IP address to comply with Spotify's security redirect policy
     private static final URI REDIRECT_URI = SpotifyHttpManager.makeUri("http://127.0.0.1:" + PORT + "/callback");
     
     private final CountDownLatch authLatch = new CountDownLatch(1);
     private String authorizationCode = null;
+    private String currentUserId = null; // Caches the logged-in user's profile ID
 
     public SpotifyService() {
         Properties prop = new Properties();
@@ -58,7 +60,6 @@ public class SpotifyService {
         try {
             String state = UUID.randomUUID().toString();
 
-            // 1. Start temporary local server to listen for the 127.0.0.1 callback
             server = HttpServer.create(new InetSocketAddress(PORT), 0);
             server.createContext("/callback", exchange -> {
                 String query = exchange.getRequestURI().getQuery();
@@ -78,7 +79,6 @@ public class SpotifyService {
             });
             server.start();
 
-            // 2. Build the Standard Authorization URI with required playlist scopes
             AuthorizationCodeUriRequest uriRequest = spotifyApi.authorizationCodeUri()
                     .scope("playlist-read-private,playlist-read-collaborative")
                     .state(state)
@@ -93,7 +93,6 @@ public class SpotifyService {
                 System.out.println("Please open this link manually: " + uri);
             }
 
-            // 3. Wait for the browser redirect callback to hit our local port
             authLatch.await();
             server.stop(1);
 
@@ -101,7 +100,6 @@ public class SpotifyService {
                 throw new IllegalStateException("Authorization code was not received.");
             }
 
-            // 4. Swap the authorization code for access/refresh tokens natively
             AuthorizationCodeRequest authCodeRequest = spotifyApi.authorizationCode(authorizationCode)
                     .build();
 
@@ -110,6 +108,15 @@ public class SpotifyService {
             spotifyApi.setAccessToken(credentials.getAccessToken());
             spotifyApi.setRefreshToken(credentials.getRefreshToken());
             
+            // Fetch and store the authenticated user's ID immediately
+            try {
+                User userProfile = spotifyApi.getCurrentUsersProfile().build().execute();
+                this.currentUserId = userProfile.getId();
+                System.out.println("Logged in as User ID: " + currentUserId);
+            } catch (Exception ue) {
+                System.err.println("Could not resolve profile details: " + ue.getMessage());
+            }
+
             System.out.println("Successfully authenticated with Spotify User Auth!");
             this.isAuthenticated = true;
             return true;
@@ -140,20 +147,33 @@ public class SpotifyService {
 
     public List<PlaylistSimplified> getCurrentUsersPlaylists() {
         if (!isAuthenticated) return null;
-        try {
-            // Fetch up to 50 playlists from the authenticated user
-            Paging<PlaylistSimplified> playlistPaging = spotifyApi
-                    .getListOfCurrentUsersPlaylists()
-                    .limit(50)
-                    .build()
-                    .execute();
-        
-            return Arrays.asList(playlistPaging.getItems());
-        } catch (Exception e) {
-            System.err.println("Failed to fetch playlists: " + e.getMessage());
-            return null;
+    try {
+        Paging<PlaylistSimplified> playlistPaging = spotifyApi
+                .getListOfCurrentUsersPlaylists()
+                .limit(50)
+                .build()
+                .execute();
+    
+        List<PlaylistSimplified> filteredPlaylists = new ArrayList<>();
+        if (playlistPaging.getItems() != null) {
+            for (PlaylistSimplified playlist : playlistPaging.getItems()) {
+                // Check if the current user is the owner
+                boolean isOwner = currentUserId != null && playlist.getOwner() != null && currentUserId.equals(playlist.getOwner().getId());
+                
+                // FIX: Changed getCollaborative() to getIsCollaborative() to match the library's naming convention
+                boolean isCollaborator = playlist.getIsCollaborative() != null && playlist.getIsCollaborative();
+                
+                if (isOwner || isCollaborator) {
+                    filteredPlaylists.add(playlist);
+                }
+            }
         }
-}
+        return filteredPlaylists;
+    } catch (Exception e) {
+        System.err.println("Failed to fetch playlists: " + e.getMessage());
+        return null;
+    }
+    }
 
     public SpotifyApi getSpotifyApi() {
         return this.spotifyApi;

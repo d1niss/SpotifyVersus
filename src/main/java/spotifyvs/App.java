@@ -42,7 +42,6 @@ public class App extends Application {
     public void start(Stage primaryStage) {
         primaryStage.setTitle("SpotifyVersus");
 
-        // 1. Loading Screen
         VBox loadingLayout = new VBox(20);
         loadingLayout.setAlignment(Pos.CENTER);
         loadingLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;");
@@ -62,7 +61,6 @@ public class App extends Application {
         new Thread(() -> {
             boolean success = this.spotifyService.authenticate();
             if (success) {
-                // 2. Load the playlist selection UI instead of launching the tournament right away
                 List<PlaylistSimplified> playlists = this.spotifyService.getCurrentUsersPlaylists();
                 Platform.runLater(() -> showPlaylistSelectionUI(primaryStage, playlists));
             } else {
@@ -71,9 +69,6 @@ public class App extends Application {
         }).start();
     }
 
-    /**
-     * Renders a screen showing all the user's personal/collaborative playlists.
-     */
     private void showPlaylistSelectionUI(Stage primaryStage, List<PlaylistSimplified> playlists) {
         VBox selectionLayout = new VBox(20);
         selectionLayout.setAlignment(Pos.CENTER);
@@ -91,7 +86,7 @@ public class App extends Application {
             listView.getItems().addAll(playlists);
         }
 
-        // Format list items nicely to show name + track totals
+        // Cleaned cell factory to show names clearly without inaccurate track totals
         listView.setCellFactory(param -> new ListCell<PlaylistSimplified>() {
             @Override
             protected void updateItem(PlaylistSimplified item, boolean empty) {
@@ -100,11 +95,8 @@ public class App extends Application {
                     setText(null);
                     setStyle("-fx-background-color: #181818;");
                 } else {
-                    // Safe guard: check if the tracks object is null before grabbing the total
-                    int totalTracks = (item.getTracks() != null) ? item.getTracks().getTotal() : 0;
-            
-                    setText(item.getName() + " (" + totalTracks + " tracks)");
-                    setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 8px;");
+                    setText("🎵  " + item.getName());
+                    setStyle("-fx-text-fill: white; -fx-font-size: 14px; -fx-padding: 10px;");
                 }
             }
         });
@@ -113,18 +105,29 @@ public class App extends Application {
         btnSelect.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnSelect.setDisable(true);
 
-        // Enable button only when a selection is made
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
             btnSelect.setDisable(newVal == null);
         });
 
         btnSelect.setOnAction(e -> {
             PlaylistSimplified selectedPlaylist = listView.getSelectionModel().getSelectedItem();
-            if (selectedPlaylist != null) {
-                // Here you would fetch the playlist tracks using selectedPlaylist.getId()
-                // For now, it proceeds directly to the local game setup
-                setupTournamentUI(primaryStage);
-            }
+    if (selectedPlaylist != null) {
+        btnSelect.setDisable(true);
+        lblTitle.setText("Downloading tracks live from Spotify...");
+        
+        new Thread(() -> {
+            boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
+            Platform.runLater(() -> {
+                if (success) {
+                    setupTournamentUI(primaryStage);
+                } else {
+                    lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
+                    btnSelect.setDisable(false);
+                    showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
+                }
+            });
+        }).start();
+    }
         });
 
         selectionLayout.getChildren().addAll(lblTitle, listView, btnSelect);
@@ -132,12 +135,12 @@ public class App extends Application {
     }
 
     private void setupTournamentUI(Stage primaryStage) {
-        SpotifyImporter.autoImport();
+        // REMOVED: SpotifyImporter.autoImport() is removed so it doesn't overwrite your selected playlist with the CSV file!
         SongRep repo = new SongRep();
         int realSongCount = repo.getSongCount();
 
         if (realSongCount < 2) {
-            showErrorMessage(primaryStage, "Not enough songs in the database. Please import more songs.");
+            showErrorMessage(primaryStage, "Selected playlist does not contain enough valid tracks to form a tournament bracket.");
             return;
         }
 
