@@ -7,6 +7,10 @@ import se.michaelthelin.spotify.model_objects.credentials.AuthorizationCodeCrede
 import se.michaelthelin.spotify.model_objects.specification.Track;
 import se.michaelthelin.spotify.requests.authorization.authorization_code.AuthorizationCodeRequest;
 import se.michaelthelin.spotify.requests.authorization.authorization_code.AuthorizationCodeUriRequest;
+import se.michaelthelin.spotify.model_objects.specification.Paging;
+import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
+import java.util.Arrays;
+import java.util.List;
 
 import java.awt.Desktop;
 import java.io.FileInputStream;
@@ -133,6 +137,23 @@ public class SpotifyService {
         }
         return null;
     }
+
+    public List<PlaylistSimplified> getCurrentUsersPlaylists() {
+        if (!isAuthenticated) return null;
+        try {
+            // Fetch up to 50 playlists from the authenticated user
+            Paging<PlaylistSimplified> playlistPaging = spotifyApi
+                    .getListOfCurrentUsersPlaylists()
+                    .limit(50)
+                    .build()
+                    .execute();
+        
+            return Arrays.asList(playlistPaging.getItems());
+        } catch (Exception e) {
+            System.err.println("Failed to fetch playlists: " + e.getMessage());
+            return null;
+        }
+}
 
     public SpotifyApi getSpotifyApi() {
         return this.spotifyApi;
