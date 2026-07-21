@@ -39,11 +39,22 @@ public class App extends Application {
         primaryStage.setTitle("SpotifyVersus");
 
         // Initialize and authenticate Spotify connectivity asynchronously behind the scenes
+       // Replace the old sequential service start with this:
         this.spotifyService = new SpotifyService();
-        this.spotifyService.authenticate();
 
-        // Always import the current CSV file right away on startup
-        SpotifyImporter.autoImport();
+        // Run authentication on a background worker thread so JavaFX doesn't freeze
+        new Thread(() -> {
+            boolean success = this.spotifyService.authenticate();
+            if (success) {
+                System.out.println("Spotify successfully paired with the UI!");
+                // If you need to refresh UI fields once logged in, wrap it in Platform.runLater()
+            } else {
+                System.err.println("Warning: Offline mode due to OAuth rejection.");
+            }
+        }).start();
+
+// Always import the current CSV file right away on startup
+SpotifyImporter.autoImport();
 
         SongRep repo = new SongRep();
         int realSongCount = repo.getSongCount();
