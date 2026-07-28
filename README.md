@@ -10,6 +10,18 @@ SpotifyVersus is a Java-based command-line tournament application designed to he
 - **Containerized Environment:** Fully dockerized for seamless setup and isolated execution.
 - **Robust Build System:** Managed with Maven for dependency handling and automated testing.
 
+
+## 🕹️ How It Works
+
+SpotifyVersus transforms your personal music library into an interactive, single-elimination bracket tournament:
+
+1. **Secure Spotify Login:** The app safely redirects you to the official Spotify authentication page using the **PKCE OAuth flow**. This grants the app temporary, secure access to fetch your playlists and tracks without ever seeing or storing your password.
+2. **Playlist Selection:** Once authenticated, the app scans and displays your eligible Spotify playlists. *Note: Shared or collaborative playlists will dynamically appear as long as your account has active access permissions.*
+3. **Bracket Balancing ($2^n$):** To run a flawless single-elimination tournament, the app calculates the total number of songs in your selected playlist. If the track count isn't a perfect power of two, it automatically injects the exact number of **"bye" slots** required to balance the bracket fairly.
+4. **Head-to-Head Showdowns:** The tournament begins! You are presented with two rival tracks side-by-side. Each matchup showcases the **album artwork** alongside an embedded **Spotify preview window**, allowing you to listen to a snippet of the tracks before making a choice.
+5. **Seamless Voting & App Launching:** To advance a song to the next round, simply click on its album artwork. If you need more than a quick preview to decide, you can use the shortcut button to instantly launch and play the full track directly inside your native Spotify application.
+6. **Crowning the Champion:** Battle your way through the matchups until only one track remains. The final surviving song is crowned the ultimate winner of your playlist, leaving you with one last chance to play it and celebrate your undisputed favorite track.
+
 ## 📁 Project Structure
 
 ```text
