@@ -8,6 +8,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -30,11 +31,13 @@ public class App extends Application {
     private int roundNumber;
 
     private Label lblStatus;
-    private Button btnMusicA;
-    private Button btnMusicB;
+    private Button btnPlayA;
+    private Button btnPlayB;
     private VBox mainLayout;
 
     private SpotifyService spotifyService;
+    private ImageView imgViewA;
+    private ImageView imgViewB;
     private WebView webViewA;
     private WebView webViewB;
 
@@ -50,7 +53,7 @@ public class App extends Application {
         lblWaiting.setStyle("-fx-font-size: 18px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
         ProgressIndicator progressIndicator = new ProgressIndicator();
-        progressIndicator.setStyle("-fx-progress-color: #1d6d39;");
+        progressIndicator.setStyle("-fx-progress-color: #1DB954;");
 
         loadingLayout.getChildren().addAll(lblWaiting, progressIndicator);
         primaryStage.setScene(new Scene(loadingLayout, 720, 600));
@@ -101,7 +104,7 @@ public class App extends Application {
         });
 
         Button btnSelect = new Button("Load Tournament");
-        btnSelect.setStyle("-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnSelect.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnSelect.setDisable(true);
 
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -159,34 +162,43 @@ public class App extends Application {
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
-        // Optimized dimensions to prevent internal text wrapping/overlapping
+        // Set up Album Art ImageViews to act like buttons
+        imgViewA = new ImageView(); imgViewA.setFitWidth(220); imgViewA.setFitHeight(220); imgViewA.setPreserveRatio(true);
+        imgViewB = new ImageView(); imgViewB.setFitWidth(220); imgViewB.setFitHeight(220); imgViewB.setPreserveRatio(true);
+        
+        imgViewA.setCursor(Cursor.HAND);
+        imgViewB.setCursor(Cursor.HAND);
+        
+        imgViewA.setOnMouseClicked(e -> vote(1));
+        imgViewB.setOnMouseClicked(e -> vote(2));
+
+        // Set up the high-resolution horizontal preview systems where buttons used to be
         webViewA = new WebView();
-        webViewA.setMaxSize(360, 352);
-        webViewA.setMinSize(360, 352);
-        webViewA.setPageFill(Color.TRANSPARENT); // Erases the white background block completely
+        webViewA.setMaxSize(360, 110);
+        webViewA.setMinSize(360, 110);
+        webViewA.setPageFill(Color.TRANSPARENT);
 
         webViewB = new WebView();
-        webViewB.setMaxSize(360, 352);
-        webViewB.setMinSize(360, 352);
-        webViewB.setPageFill(Color.TRANSPARENT); 
+        webViewB.setMaxSize(360, 110);
+        webViewB.setMinSize(360, 110);
+        webViewB.setPageFill(Color.TRANSPARENT);
 
-        btnMusicA = new Button(); btnMusicB = new Button();
-        String voteButtonStyle = "-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 20px 30px; -fx-background-radius: 12px; -fx-cursor: hand; -fx-min-width: 360px; -fx-max-width: 360px; -fx-text-alignment: center;";
-        btnMusicA.setStyle(voteButtonStyle); btnMusicB.setStyle(voteButtonStyle);
+        btnPlayA = new Button("▶ Open in Spotify"); btnPlayB = new Button("▶ Open in Spotify");
+        String playButtonStyle = "-fx-background-color: #282828; -fx-text-fill: #B3B3B3; -fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 8px 20px; -fx-background-radius: 20px; -fx-cursor: hand; -fx-min-width: 160px;";
+        btnPlayA.setStyle(playButtonStyle); btnPlayB.setStyle(playButtonStyle);
 
-        btnMusicA.setOnAction(e -> vote(1)); 
-        btnMusicB.setOnAction(e -> vote(2)); 
-
-        VBox containerA = new VBox(15, webViewA, btnMusicA); containerA.setAlignment(Pos.CENTER);
-        VBox containerB = new VBox(15, webViewB, btnMusicB); containerB.setAlignment(Pos.CENTER);
-        HBox layoutBtn = new HBox(40, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
+        // Arranged: Art on top (Clickable to vote) -> WebView Player below it -> Extra link button
+        VBox containerA = new VBox(20, imgViewA, webViewA, btnPlayA); containerA.setAlignment(Pos.CENTER);
+        VBox containerB = new VBox(20, imgViewB, webViewB, btnPlayB); containerB.setAlignment(Pos.CENTER);
+        HBox layoutBtn = new HBox(50, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
 
         mainLayout = new VBox(30, lblStatus, layoutBtn);
         mainLayout.setAlignment(Pos.CENTER);
         mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
         advanceConfront();
-        primaryStage.setScene(new Scene(mainLayout, 920, 680));
+        // Expanded application frame size slightly to comfortably fit the widescreen layouts
+        primaryStage.setScene(new Scene(mainLayout, 940, 640));
     }
 
     private void advanceConfront() {
@@ -209,20 +221,26 @@ public class App extends Application {
         if (s2.isBye()) { nextRoundWinners.add(s1); currentIndex += 2; advanceConfront(); return; }
 
         lblStatus.setText("--- ROUND " + roundNumber + " (" + currentRound.size() + " songs remaining) ---");
-        btnMusicA.setText(s1.getTrackName() + "\n🎤 " + s1.getArtistNames());
-        btnMusicB.setText(s2.getTrackName() + "\n🎤 " + s2.getArtistNames());
 
+        String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
+        imgViewA.setImage(artUrlA != null ? new Image(artUrlA, true) : null);
+
+        String artUrlB = spotifyService.getAlbumArtUrl(s2.getTrackUri());
+        imgViewB.setImage(artUrlB != null ? new Image(artUrlB, true) : null);
+
+        // Render targets automatically fetch and clean horizontal formats using generator stylesheets
         if (s1.getTrackUri() != null && s1.getTrackUri().startsWith("spotify:track:")) {
             String trackIdA = s1.getTrackUri().substring("spotify:track:".length());
-            String embedUrlA = "https://open.spotify.com/embed/track/" + trackIdA;
-            webViewA.getEngine().load(embedUrlA);
+            webViewA.getEngine().load("https://open.spotify.com/embed/track/" + trackIdA + "?utm_source=generator");
         }
 
         if (s2.getTrackUri() != null && s2.getTrackUri().startsWith("spotify:track:")) {
             String trackIdB = s2.getTrackUri().substring("spotify:track:".length());
-            String embedUrlB = "https://open.spotify.com/embed/track/" + trackIdB;
-            webViewB.getEngine().load(embedUrlB);
+            webViewB.getEngine().load("https://open.spotify.com/embed/track/" + trackIdB + "?utm_source=generator");
         }
+
+        btnPlayA.setOnAction(e -> openInSpotify(s1.getTrackUri()));
+        btnPlayB.setOnAction(e -> openInSpotify(s2.getTrackUri()));
     }
 
     private void vote(int choice) {
@@ -247,14 +265,14 @@ public class App extends Application {
         lblStatus.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFD700; -fx-font-weight: bold;"); 
 
         Label lblWinner = new Label(winner.getTrackName().toUpperCase() + "\nby " + winner.getArtistNames());
-        lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1d6d39; -fx-font-weight: bold; -fx-text-alignment: center;");
+        lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
 
         ImageView imgWinner = new ImageView(); imgWinner.setFitWidth(250); imgWinner.setFitHeight(250); imgWinner.setPreserveRatio(true);
         String finalArt = spotifyService.getAlbumArtUrl(winner.getTrackUri());
         if (finalArt != null) imgWinner.setImage(new Image(finalArt, true));
 
         Button btnPlayWinner = new Button("▶ Open Last Winner in Spotify");
-        btnPlayWinner.setStyle("-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnPlayWinner.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnPlayWinner.setOnAction(e -> openInSpotify(winner.getTrackUri()));
 
         mainLayout.getChildren().clear();
