@@ -17,6 +17,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
 import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
@@ -49,7 +50,7 @@ public class App extends Application {
         lblWaiting.setStyle("-fx-font-size: 18px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
         ProgressIndicator progressIndicator = new ProgressIndicator();
-        progressIndicator.setStyle("-fx-progress-color: #1DB954;");
+        progressIndicator.setStyle("-fx-progress-color: #1d6d39;");
 
         loadingLayout.getChildren().addAll(lblWaiting, progressIndicator);
         primaryStage.setScene(new Scene(loadingLayout, 720, 600));
@@ -100,7 +101,7 @@ public class App extends Application {
         });
 
         Button btnSelect = new Button("Load Tournament");
-        btnSelect.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnSelect.setStyle("-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 10px 30px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnSelect.setDisable(true);
 
         listView.getSelectionModel().selectedItemProperty().addListener((obs, oldVal, newVal) -> {
@@ -158,16 +159,19 @@ public class App extends Application {
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
+        // Optimized dimensions to prevent internal text wrapping/overlapping
         webViewA = new WebView();
-        webViewA.setMaxSize(300, 380);
-        webViewA.setMinSize(300, 380);
+        webViewA.setMaxSize(360, 352);
+        webViewA.setMinSize(360, 352);
+        webViewA.setPageFill(Color.TRANSPARENT); // Erases the white background block completely
 
         webViewB = new WebView();
-        webViewB.setMaxSize(300, 380);
-        webViewB.setMinSize(300, 380);
+        webViewB.setMaxSize(360, 352);
+        webViewB.setMinSize(360, 352);
+        webViewB.setPageFill(Color.TRANSPARENT); 
 
         btnMusicA = new Button(); btnMusicB = new Button();
-        String voteButtonStyle = "-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 25px 40px; -fx-background-radius: 15px; -fx-cursor: hand; -fx-min-width: 300px; -fx-text-alignment: center;";
+        String voteButtonStyle = "-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 20px 30px; -fx-background-radius: 12px; -fx-cursor: hand; -fx-min-width: 360px; -fx-max-width: 360px; -fx-text-alignment: center;";
         btnMusicA.setStyle(voteButtonStyle); btnMusicB.setStyle(voteButtonStyle);
 
         btnMusicA.setOnAction(e -> vote(1)); 
@@ -182,7 +186,7 @@ public class App extends Application {
         mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
         advanceConfront();
-        primaryStage.setScene(new Scene(mainLayout, 820, 680));
+        primaryStage.setScene(new Scene(mainLayout, 920, 680));
     }
 
     private void advanceConfront() {
@@ -243,14 +247,14 @@ public class App extends Application {
         lblStatus.setStyle("-fx-font-size: 20px; -fx-text-fill: #FFD700; -fx-font-weight: bold;"); 
 
         Label lblWinner = new Label(winner.getTrackName().toUpperCase() + "\nby " + winner.getArtistNames());
-        lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1DB954; -fx-font-weight: bold; -fx-text-alignment: center;");
+        lblWinner.setStyle("-fx-font-size: 24px; -fx-text-fill: #1d6d39; -fx-font-weight: bold; -fx-text-alignment: center;");
 
         ImageView imgWinner = new ImageView(); imgWinner.setFitWidth(250); imgWinner.setFitHeight(250); imgWinner.setPreserveRatio(true);
         String finalArt = spotifyService.getAlbumArtUrl(winner.getTrackUri());
         if (finalArt != null) imgWinner.setImage(new Image(finalArt, true));
 
         Button btnPlayWinner = new Button("▶ Open Last Winner in Spotify");
-        btnPlayWinner.setStyle("-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
+        btnPlayWinner.setStyle("-fx-background-color: #1d6d39; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 12px 25px; -fx-background-radius: 20px; -fx-cursor: hand;");
         btnPlayWinner.setOnAction(e -> openInSpotify(winner.getTrackUri()));
 
         mainLayout.getChildren().clear();
