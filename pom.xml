@@ -45,6 +45,11 @@
       <artifactId>spotify-web-api-java</artifactId>
       <version>8.4.1</version>
     </dependency>
+    <dependency>
+    <groupId>org.openjfx</groupId>
+    <artifactId>javafx-web</artifactId>
+    <version>21</version>
+</dependency>
   </dependencies>
 
   <build>

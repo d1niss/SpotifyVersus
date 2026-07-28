@@ -8,6 +8,7 @@ import javafx.application.Application;
 import javafx.application.Platform;
 import javafx.geometry.Pos;
 import javafx.scene.Scene;
+import javafx.scene.Cursor;
 import javafx.scene.control.Button;
 import javafx.scene.control.Label;
 import javafx.scene.control.ListCell;
@@ -17,6 +18,8 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.paint.Color;
+import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
 
@@ -28,8 +31,6 @@ public class App extends Application {
     private int roundNumber;
 
     private Label lblStatus;
-    private Button btnMusicA;
-    private Button btnMusicB;
     private Button btnPlayA;
     private Button btnPlayB;
     private VBox mainLayout;
@@ -37,6 +38,8 @@ public class App extends Application {
     private SpotifyService spotifyService;
     private ImageView imgViewA;
     private ImageView imgViewB;
+    private WebView webViewA;
+    private WebView webViewB;
 
     @Override
     public void start(Stage primaryStage) {
@@ -86,7 +89,6 @@ public class App extends Application {
             listView.getItems().addAll(playlists);
         }
 
-        // Cleaned cell factory to show names clearly without inaccurate track totals
         listView.setCellFactory(param -> new ListCell<PlaylistSimplified>() {
             @Override
             protected void updateItem(PlaylistSimplified item, boolean empty) {
@@ -111,23 +113,23 @@ public class App extends Application {
 
         btnSelect.setOnAction(e -> {
             PlaylistSimplified selectedPlaylist = listView.getSelectionModel().getSelectedItem();
-    if (selectedPlaylist != null) {
-        btnSelect.setDisable(true);
-        lblTitle.setText("Downloading tracks live from Spotify...");
-        
-        new Thread(() -> {
-            boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
-            Platform.runLater(() -> {
-                if (success) {
-                    setupTournamentUI(primaryStage);
-                } else {
-                    lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
-                    btnSelect.setDisable(false);
-                    showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
-                }
-            });
-        }).start();
-    }
+            if (selectedPlaylist != null) {
+                btnSelect.setDisable(true);
+                lblTitle.setText("Downloading tracks live from Spotify...");
+                
+                new Thread(() -> {
+                    boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
+                    Platform.runLater(() -> {
+                        if (success) {
+                            setupTournamentUI(primaryStage);
+                        } else {
+                            lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
+                            btnSelect.setDisable(false);
+                            showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
+                        }
+                    });
+                }).start();
+            }
         });
 
         selectionLayout.getChildren().addAll(lblTitle, listView, btnSelect);
@@ -135,7 +137,6 @@ public class App extends Application {
     }
 
     private void setupTournamentUI(Stage primaryStage) {
-        // REMOVED: SpotifyImporter.autoImport() is removed so it doesn't overwrite your selected playlist with the CSV file!
         SongRep repo = new SongRep();
         int realSongCount = repo.getSongCount();
 
@@ -161,30 +162,43 @@ public class App extends Application {
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
-        imgViewA = new ImageView(); imgViewA.setFitWidth(200); imgViewA.setFitHeight(200); imgViewA.setPreserveRatio(true);
-        imgViewB = new ImageView(); imgViewB.setFitWidth(200); imgViewB.setFitHeight(200); imgViewB.setPreserveRatio(true);
+        // Set up Album Art ImageViews to act like buttons
+        imgViewA = new ImageView(); imgViewA.setFitWidth(220); imgViewA.setFitHeight(220); imgViewA.setPreserveRatio(true);
+        imgViewB = new ImageView(); imgViewB.setFitWidth(220); imgViewB.setFitHeight(220); imgViewB.setPreserveRatio(true);
+        
+        imgViewA.setCursor(Cursor.HAND);
+        imgViewB.setCursor(Cursor.HAND);
+        
+        imgViewA.setOnMouseClicked(e -> vote(1));
+        imgViewB.setOnMouseClicked(e -> vote(2));
 
-        btnMusicA = new Button(); btnMusicB = new Button();
-        String voteButtonStyle = "-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 25px 40px; -fx-background-radius: 15px; -fx-cursor: hand; -fx-min-width: 280px; -fx-text-alignment: center;";
-        btnMusicA.setStyle(voteButtonStyle); btnMusicB.setStyle(voteButtonStyle);
+        // Set up the high-resolution horizontal preview systems where buttons used to be
+        webViewA = new WebView();
+        webViewA.setMaxSize(360, 110);
+        webViewA.setMinSize(360, 110);
+        webViewA.setPageFill(Color.TRANSPARENT);
+
+        webViewB = new WebView();
+        webViewB.setMaxSize(360, 110);
+        webViewB.setMinSize(360, 110);
+        webViewB.setPageFill(Color.TRANSPARENT);
 
         btnPlayA = new Button("▶ Open in Spotify"); btnPlayB = new Button("▶ Open in Spotify");
         String playButtonStyle = "-fx-background-color: #282828; -fx-text-fill: #B3B3B3; -fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 8px 20px; -fx-background-radius: 20px; -fx-cursor: hand; -fx-min-width: 160px;";
         btnPlayA.setStyle(playButtonStyle); btnPlayB.setStyle(playButtonStyle);
 
-        btnMusicA.setOnAction(e -> vote(1)); 
-        btnMusicB.setOnAction(e -> vote(2)); 
-
-        VBox containerA = new VBox(15, imgViewA, btnMusicA, btnPlayA); containerA.setAlignment(Pos.CENTER);
-        VBox containerB = new VBox(15, imgViewB, btnMusicB, btnPlayB); containerB.setAlignment(Pos.CENTER);
-        HBox layoutBtn = new HBox(40, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
+        // Arranged: Art on top (Clickable to vote) -> WebView Player below it -> Extra link button
+        VBox containerA = new VBox(20, imgViewA, webViewA, btnPlayA); containerA.setAlignment(Pos.CENTER);
+        VBox containerB = new VBox(20, imgViewB, webViewB, btnPlayB); containerB.setAlignment(Pos.CENTER);
+        HBox layoutBtn = new HBox(50, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
 
         mainLayout = new VBox(30, lblStatus, layoutBtn);
         mainLayout.setAlignment(Pos.CENTER);
         mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
         advanceConfront();
-        primaryStage.setScene(new Scene(mainLayout, 720, 600));
+        // Expanded application frame size slightly to comfortably fit the widescreen layouts
+        primaryStage.setScene(new Scene(mainLayout, 940, 640));
     }
 
     private void advanceConfront() {
@@ -207,14 +221,23 @@ public class App extends Application {
         if (s2.isBye()) { nextRoundWinners.add(s1); currentIndex += 2; advanceConfront(); return; }
 
         lblStatus.setText("--- ROUND " + roundNumber + " (" + currentRound.size() + " songs remaining) ---");
-        btnMusicA.setText(s1.getTrackName() + "\n🎤 " + s1.getArtistNames());
-        btnMusicB.setText(s2.getTrackName() + "\n🎤 " + s2.getArtistNames());
 
         String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
         imgViewA.setImage(artUrlA != null ? new Image(artUrlA, true) : null);
 
         String artUrlB = spotifyService.getAlbumArtUrl(s2.getTrackUri());
         imgViewB.setImage(artUrlB != null ? new Image(artUrlB, true) : null);
+
+        // Render targets automatically fetch and clean horizontal formats using generator stylesheets
+        if (s1.getTrackUri() != null && s1.getTrackUri().startsWith("spotify:track:")) {
+            String trackIdA = s1.getTrackUri().substring("spotify:track:".length());
+            webViewA.getEngine().load("https://open.spotify.com/embed/track/" + trackIdA + "?utm_source=generator");
+        }
+
+        if (s2.getTrackUri() != null && s2.getTrackUri().startsWith("spotify:track:")) {
+            String trackIdB = s2.getTrackUri().substring("spotify:track:".length());
+            webViewB.getEngine().load("https://open.spotify.com/embed/track/" + trackIdB + "?utm_source=generator");
+        }
 
         btnPlayA.setOnAction(e -> openInSpotify(s1.getTrackUri()));
         btnPlayB.setOnAction(e -> openInSpotify(s2.getTrackUri()));

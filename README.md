@@ -1,76 +1,92 @@
-# SpotifyVersus
+# SpotifyVersus 🎵🏆
 
-SpotifyVersus is a JavaFX-based desktop application that turns your music library into a tournament-style bracket game. Users vote between head-to-head match-ups of random songs from their database until a single champion is crowned. It features seamless integration with the Spotify desktop application or web player so you can preview songs dynamically during matchups.
+SpotifyVersus is a Java-based command-line tournament application designed to help you find your ultimate favorite tracks through a series of head-to-head song brackets. By integrating with the Spotify API using secure PKCE authentication, it allows you to pull tracks, manage them, and run tournaments to rank your library.
 
----
+## ✨ Features
 
-## Features
+- **Spotify API Integration:** Connects securely to Spotify using PKCE (Proof Key for Code Exchange) OAuth flow.
+- **Tournament Manager:** Simulates or interactive runs a bracket-style tournament to determine winning tracks.
+- **Local Database support:** Seeds and retains track data using a lightweight CSV-based local repository (`songs.csv`).
+- **Containerized Environment:** Fully dockerized for seamless setup and isolated execution.
+- **Robust Build System:** Managed with Maven for dependency handling and automated testing.
 
-* **Automated Data Lifecycle:** On your very first run, the app autonomously detects an empty database, initializes the SQLite layout, and populates it using a native `songs.csv` file without requiring manual terminal inputs.
-* **Dynamic Bracket Optimization:** Automatically scales the tournament to the closest power of two, injecting "Bye" rounds smoothly to support any number of songs.
-* **Interactive JavaFX UI:** A clean, dark-themed user interface inspired by Spotify’s visual aesthetic.
-* **In-App Media Redirection:** Includes action buttons that directly open the track inside your local Spotify desktop app or fallback to the Spotify Web Player via your default browser.
-
----
-
-## Tech Stack
-
-* **Language:** Java 11+
-* **GUI Framework:** JavaFX
-* **Database:** SQLite (via JDBC)
-* **CSV Parsing:** Apache Commons CSV
-* **Build Tool:** Maven
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```text
 SpotifyVersus/
 ├── src/
-│   └── main/
-│       └── java/
-│           └── spotifyvs/
-│               ├── App.java              # Main JavaFX application & tournament runner
-│               ├── Song.java             # Data model representation for track items
-│               ├── SongRep.java          # Repository layer managing database queries
-│               └── SpotifyImporter.java  # CSV Ingestion & schema building logic
-├── songs.csv                             # Source CSV file containing track data
-└── pom.xml                               # Project dependencies configuration
+│   ├── main/java/spotifyvs/
+│   │   ├── App.java                 # Application Entry Point
+│   │   ├── PKCEUtil.java            # Spotify PKCE Authentication Helper
+│   │   ├── Song.java                # Song Model
+│   │   ├── SongRep.java             # CSV Data Repository Layer
+│   │   ├── SpotifyImporter.java     # Logic to import tracks via Spotify API
+│   │   ├── SpotifyService.java      # Spotify API wrapper and interaction
+│   │   └── TournamentManager.java   # Bracket & tournament logic
+│   └── test/java/spotifyvs/
+│       └── AppTest.java             # Unit tests
+├── songs.csv                        # Local storage/cache for song datasets
+├── pom.xml                          # Maven configuration file
+└── Dockerfile                       # Multi-stage Docker build recipe
 ```
 
----
+## 🚀 Prerequisites
 
-## How It Works
+Before running the project, ensure you have the following installed:
+- **Java Development Kit (JDK) 17** or higher
+- **Apache Maven 3.8+**
+- **Docker** (Optional, for containerized running)
+- **Spotify Developer Credentials** (Client ID)
 
-### 1. Database Initialization
-When launching `App.java`, the system queries the SQLite database (`spotify_tracks.db`). If the database is completely empty or missing, it triggers the automated CSV parser, importing all track data from `songs.csv` directly into the database.
+## 🛠️ Setup & Configuration
 
-### 2. Tournament Structuring
-The app grabs a randomized set of competitors from your library. If the total song count does not perfectly match a standard double-elimination power grid (e.g., 8, 16, 32, 64), the application injects placeholder **"Bye Songs"** to safely advance individual candidates evenly across matchups.
+1. **Register your application on Spotify:**
+   - Go to the [Spotify Developer Dashboard](https://developer.spotify.com/).
+   - Create a new app.
+   - Edit the settings and add your Redirect URI (e.g., `http://localhost:8080/callback` or as configured in `PKCEUtil.java`).
 
-### 3. Matchups & Previews
-Songs are pitted against each other two by two. Users can click **"▶ Ouvir no Spotify"** to listen to the song before submitting their vote. Clicking either track name progresses the bracket to the next matchup.
-
----
-
-## Setup & Installation
-
-### Prerequisites
-* **Java Development Kit (JDK 11 or higher)**
-* **Apache Maven** installed and configured
-
-### Running the App
-
-1. Ensure your track metadata spreadsheet is saved exactly as `songs.csv` in the root folder of the project. The CSV should utilize standard Spotify export headers (`Track URI`, `Track Name`, `Artist Name(s)`, `Album Name`, etc.).
-2. Compile and run the application via Maven:
+2. **Clone the repository:**
    ```bash
-   mvn clean javafx:run
+   git clone https://github.com/d1niss/spotifyversus.git
+   cd spotifyversus
    ```
 
----
+3. **Configure Environment Variables (If required by your setup):**
+   Ensure your Spotify Client ID and Redirect URIs are passed to the environment or properly set within your configuration/argument parser.
 
-## Future Roadmap
-* [ ] Integration with the official **Spotify Web API** to allow importing personal user playlists dynamically rather than using local CSV data.
-* [ ] Live playback progress indicator inside the UI.
-* [ ] Historical match leaderboards and track win/loss statistics.
+## 📦 Building and Running
+
+### Method 1: Local Maven Build
+
+1. Build and package the application:
+   ```bash
+   mvn clean package
+   ```
+
+2. Run the generated JAR file:
+   ```bash
+   java -jar target/SpotifyVersus-1.0-SNAPSHOT.jar
+   ```
+
+### Method 2: Docker (Recommended)
+
+1. Build the lightweight Docker image:
+   ```bash
+   docker build -t spotify-versus .
+   ```
+
+2. Run the interactive tournament container:
+   ```bash
+   docker run -it spotify-versus
+   ```
+
+## 🧪 Running Tests
+
+To execute the unit tests included in the project:
+```bash
+mvn test
+```
+
+## 📝 License
+
+This project is open-source and available under the MIT License.
