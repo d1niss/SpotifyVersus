@@ -17,6 +17,7 @@ import javafx.scene.image.Image;
 import javafx.scene.image.ImageView;
 import javafx.scene.layout.HBox;
 import javafx.scene.layout.VBox;
+import javafx.scene.web.WebView;
 import javafx.stage.Stage;
 import se.michaelthelin.spotify.model_objects.specification.PlaylistSimplified;
 
@@ -30,13 +31,11 @@ public class App extends Application {
     private Label lblStatus;
     private Button btnMusicA;
     private Button btnMusicB;
-    private Button btnPlayA;
-    private Button btnPlayB;
     private VBox mainLayout;
 
     private SpotifyService spotifyService;
-    private ImageView imgViewA;
-    private ImageView imgViewB;
+    private WebView webViewA;
+    private WebView webViewB;
 
     @Override
     public void start(Stage primaryStage) {
@@ -86,7 +85,6 @@ public class App extends Application {
             listView.getItems().addAll(playlists);
         }
 
-        // Cleaned cell factory to show names clearly without inaccurate track totals
         listView.setCellFactory(param -> new ListCell<PlaylistSimplified>() {
             @Override
             protected void updateItem(PlaylistSimplified item, boolean empty) {
@@ -111,23 +109,23 @@ public class App extends Application {
 
         btnSelect.setOnAction(e -> {
             PlaylistSimplified selectedPlaylist = listView.getSelectionModel().getSelectedItem();
-    if (selectedPlaylist != null) {
-        btnSelect.setDisable(true);
-        lblTitle.setText("Downloading tracks live from Spotify...");
-        
-        new Thread(() -> {
-            boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
-            Platform.runLater(() -> {
-                if (success) {
-                    setupTournamentUI(primaryStage);
-                } else {
-                    lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
-                    btnSelect.setDisable(false);
-                    showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
-                }
-            });
-        }).start();
-    }
+            if (selectedPlaylist != null) {
+                btnSelect.setDisable(true);
+                lblTitle.setText("Downloading tracks live from Spotify...");
+                
+                new Thread(() -> {
+                    boolean success = SpotifyImporter.importPlaylistFromSpotify(selectedPlaylist.getId(), spotifyService.getSpotifyApi());
+                    Platform.runLater(() -> {
+                        if (success) {
+                            setupTournamentUI(primaryStage);
+                        } else {
+                            lblTitle.setText("Select a Playlist to Start the Versus Bracket:");
+                            btnSelect.setDisable(false);
+                            showErrorMessage(primaryStage, "Access Denied. You can only load playlists you own or collaborate on.");
+                        }
+                    });
+                }).start();
+            }
         });
 
         selectionLayout.getChildren().addAll(lblTitle, listView, btnSelect);
@@ -135,7 +133,6 @@ public class App extends Application {
     }
 
     private void setupTournamentUI(Stage primaryStage) {
-        // REMOVED: SpotifyImporter.autoImport() is removed so it doesn't overwrite your selected playlist with the CSV file!
         SongRep repo = new SongRep();
         int realSongCount = repo.getSongCount();
 
@@ -161,22 +158,23 @@ public class App extends Application {
         lblStatus = new Label();
         lblStatus.setStyle("-fx-font-size: 16px; -fx-text-fill: #FFFFFF; -fx-font-weight: bold;");
 
-        imgViewA = new ImageView(); imgViewA.setFitWidth(200); imgViewA.setFitHeight(200); imgViewA.setPreserveRatio(true);
-        imgViewB = new ImageView(); imgViewB.setFitWidth(200); imgViewB.setFitHeight(200); imgViewB.setPreserveRatio(true);
+        webViewA = new WebView();
+        webViewA.setMaxSize(300, 380);
+        webViewA.setMinSize(300, 380);
+
+        webViewB = new WebView();
+        webViewB.setMaxSize(300, 380);
+        webViewB.setMinSize(300, 380);
 
         btnMusicA = new Button(); btnMusicB = new Button();
-        String voteButtonStyle = "-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 25px 40px; -fx-background-radius: 15px; -fx-cursor: hand; -fx-min-width: 280px; -fx-text-alignment: center;";
+        String voteButtonStyle = "-fx-background-color: #1DB954; -fx-text-fill: white; -fx-font-size: 14px; -fx-font-weight: bold; -fx-padding: 25px 40px; -fx-background-radius: 15px; -fx-cursor: hand; -fx-min-width: 300px; -fx-text-alignment: center;";
         btnMusicA.setStyle(voteButtonStyle); btnMusicB.setStyle(voteButtonStyle);
-
-        btnPlayA = new Button("▶ Open in Spotify"); btnPlayB = new Button("▶ Open in Spotify");
-        String playButtonStyle = "-fx-background-color: #282828; -fx-text-fill: #B3B3B3; -fx-font-size: 12px; -fx-font-weight: bold; -fx-padding: 8px 20px; -fx-background-radius: 20px; -fx-cursor: hand; -fx-min-width: 160px;";
-        btnPlayA.setStyle(playButtonStyle); btnPlayB.setStyle(playButtonStyle);
 
         btnMusicA.setOnAction(e -> vote(1)); 
         btnMusicB.setOnAction(e -> vote(2)); 
 
-        VBox containerA = new VBox(15, imgViewA, btnMusicA, btnPlayA); containerA.setAlignment(Pos.CENTER);
-        VBox containerB = new VBox(15, imgViewB, btnMusicB, btnPlayB); containerB.setAlignment(Pos.CENTER);
+        VBox containerA = new VBox(15, webViewA, btnMusicA); containerA.setAlignment(Pos.CENTER);
+        VBox containerB = new VBox(15, webViewB, btnMusicB); containerB.setAlignment(Pos.CENTER);
         HBox layoutBtn = new HBox(40, containerA, containerB); layoutBtn.setAlignment(Pos.CENTER);
 
         mainLayout = new VBox(30, lblStatus, layoutBtn);
@@ -184,7 +182,7 @@ public class App extends Application {
         mainLayout.setStyle("-fx-background-color: #121212; -fx-padding: 40px;"); 
 
         advanceConfront();
-        primaryStage.setScene(new Scene(mainLayout, 720, 600));
+        primaryStage.setScene(new Scene(mainLayout, 820, 680));
     }
 
     private void advanceConfront() {
@@ -210,14 +208,17 @@ public class App extends Application {
         btnMusicA.setText(s1.getTrackName() + "\n🎤 " + s1.getArtistNames());
         btnMusicB.setText(s2.getTrackName() + "\n🎤 " + s2.getArtistNames());
 
-        String artUrlA = spotifyService.getAlbumArtUrl(s1.getTrackUri());
-        imgViewA.setImage(artUrlA != null ? new Image(artUrlA, true) : null);
+        if (s1.getTrackUri() != null && s1.getTrackUri().startsWith("spotify:track:")) {
+            String trackIdA = s1.getTrackUri().substring("spotify:track:".length());
+            String embedUrlA = "https://open.spotify.com/embed/track/" + trackIdA;
+            webViewA.getEngine().load(embedUrlA);
+        }
 
-        String artUrlB = spotifyService.getAlbumArtUrl(s2.getTrackUri());
-        imgViewB.setImage(artUrlB != null ? new Image(artUrlB, true) : null);
-
-        btnPlayA.setOnAction(e -> openInSpotify(s1.getTrackUri()));
-        btnPlayB.setOnAction(e -> openInSpotify(s2.getTrackUri()));
+        if (s2.getTrackUri() != null && s2.getTrackUri().startsWith("spotify:track:")) {
+            String trackIdB = s2.getTrackUri().substring("spotify:track:".length());
+            String embedUrlB = "https://open.spotify.com/embed/track/" + trackIdB;
+            webViewB.getEngine().load(embedUrlB);
+        }
     }
 
     private void vote(int choice) {

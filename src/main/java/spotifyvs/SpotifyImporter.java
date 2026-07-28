@@ -180,7 +180,7 @@ public static void autoImport() {
         JsonObject jsonObject = JsonParser.parseString(response.body()).getAsJsonObject();
         JsonArray items = jsonObject.getAsJsonArray("items");
 
-        // LOG DE DIAGNÓSTICO 1: Verificar o tamanho do array retornado
+
         if (items == null) {
             System.out.println("[DEBUG] The 'items' array is completely NULL.");
             return false;
@@ -192,7 +192,7 @@ public static void autoImport() {
             return false;
         }
 
-        // LOG DE DIAGNÓSTICO 2: Imprimir a estrutura do primeiro item para inspecionar os campos
+
         System.out.println("[DEBUG] Structure of the first item: " + items.get(0).toString());
 
         String insertSql = "INSERT OR IGNORE INTO tracks (track_uri, track_name, album_name, artist_names) VALUES (?,?,?,?)";
@@ -249,12 +249,12 @@ public static void autoImport() {
             pstmt.executeBatch();
             System.out.println("Successfully imported " + count + " tracks live from Spotify API using direct HTTP /items endpoint!");
             
-            // Se mesmo com itens no array rodando o laço ele continuar zerado, printe a resposta bruta
+
             if (count == 0) {
                 System.out.println("[DEBUG] Loop finished with 0 matches. Raw response body: " + response.body());
             }
             
-            return count > 0; // Só avança se realmente salvou alguma música no banco
+            return count > 0; 
         }
 
     } catch (Exception e) {
